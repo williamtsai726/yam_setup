@@ -85,7 +85,6 @@ class ViserPyrokiAgent(Agent):
 
     def act(self, obs: Dict[str, Any]) -> Any:
         self.obs = deepcopy(obs)
-        print(self.obs)
 
         action = {
             "left": {

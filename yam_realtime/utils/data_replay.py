@@ -3,6 +3,7 @@ import concurrent
 import json
 import pickle
 from turtle import right
+import torch
 from tqdm import tqdm
 import numpy as np
 import os
@@ -165,7 +166,7 @@ class DataReplayer():
                 # if len(self.wrist_rgb_paths) == 0:
                 #     log_data_utils(f"WARNING: No wrist camera images found in {wrist_camera_dir}", "warning")
                 
-                # Process actions
+                # Process actions (this code doesn't do anything)
                 if isinstance(demo, dict) and "left_raw_action" in demo and "right_raw_action" in demo:
                     actions = {"left": demo[0]["left_raw_action"], "right": demo[0]["right_raw_action"]}
                     log_data_utils(f"Processing actions with shape: {actions.shape}", "info")
@@ -262,7 +263,7 @@ class DataReplayer():
         if self.demo is None:
             log_data_utils("No demo data loaded. Please load a demo first.", "error")
             return 0
-        return len(self.demo["action"])
+        return len(self.demo)
     
     def get_observation(self, step_idx: int) -> Dict[str, Any]:
         """
@@ -295,9 +296,25 @@ class DataReplayer():
         if "language_instruction" not in self.demo:
             log_data_utils("No language instruction found in demo.", "error")
             return None
-        return self.demo["language_instruction"][0]
+        return self.demo["language_instruction"]
     
-    
+    # def get_episode_all_obs(self):
+    #     if self.demo is None:
+    #         log_data_utils("No demo data loaded. Please load a demo first.", "error")
+    #         return None
+    #     state = [np.concatenate([self.demo[i]["left_joint"], self.demo[i]["right_joint"]]) for i in range(len(self.demo))]
+        
+    #     left_rgb = [self.demo[i]["image_left_rgb"] for i in range(len(self.demo))]
+    #     front_rgb = [self.demo[i]["image_front_rgb"] for i in range(len(self.demo))]
+    #     right_rgb = [self.demo[i]["image_right_rgb"] for i in range(len(self.demo))]
+    #     obs_dict = {
+    #         "observation.state": state,
+    #         "observation.images.camera_0": left_rgb,
+    #         "observation.images.camera_1": right_rgb,
+    #         "observation.images.camera_2": front_rgb,
+    #     }
+    #     return obs_dict
+ 
     def replay(self, env: RobotEnv, visual: bool = False, robot_trajectory: bool = True):
         if self.demo is None:
             log_data_utils("No demo data loaded. Please load a demo first.", "error")

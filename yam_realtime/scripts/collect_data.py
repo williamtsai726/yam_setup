@@ -139,7 +139,7 @@ def _run_control_loop(env: RobotEnv, agent: Agent, config: LaunchConfig, configs
     while num_traj < configs_dict['storage']['episodes']:
         obs = env.reset()
         data_saver.reset_buffer()
-        
+        print(obs)
 
         logger.info(f"Press 'A' to start collecting data: ")
 

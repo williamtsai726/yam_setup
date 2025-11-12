@@ -1,0 +1,65 @@
+_target_: yam_realtime.scripts.eval_diffusion.LaunchConfig
+
+sensors:
+  cameras:
+    left_camera:
+        _target_: yam_realtime.sensors.cameras.camera.CameraNode
+        camera:
+            _target_: yam_realtime.sensors.cameras.opencv_camera.OpencvCamera
+            device_path: "/dev/video4"
+            camera_type: "realsense_camera"
+    right_camera:
+        _target_: yam_realtime.sensors.cameras.camera.CameraNode
+        camera:
+            _target_: yam_realtime.sensors.cameras.opencv_camera.OpencvCamera
+            device_path: "/dev/video10"
+            camera_type: "realsense_camera"
+    front_camera:
+        _target_: yam_realtime.sensors.cameras.camera.CameraNode
+        camera:
+            _target_: yam_realtime.sensors.cameras.opencv_camera.OpencvCamera
+            device_path: "/dev/video18"
+            camera_type: "realsense_camera"
+
+robots:
+  left: ["robot_configs/yam/left.yaml"]
+  right: ["robot_configs/yam/left.yaml", "robot_configs/yam/right.yaml"]
+
+agent:
+  _target_: yam_realtime.agents.policy_learning.diffusion_policy_agent.AsyncDiffusionAgent
+  bimanual: true
+  right_arm_extrinsic:
+      position: [0.0, -0.61, 0.0]
+      rotation: [1.0, 0.0, 0.0, 0.0]
+
+station_metadata:
+  world_frame: "left_arm" # front x, left y, up z
+  extrinsics:
+    right_arm_extrinsic:
+      position: [0.0, -0.61, 0.0]
+      rotation: [1.0, 0.0, 0.0, 0.0]
+  
+policy:
+  _target_: lerobot.common.policies.diffusion.configuration_diffusion.DiffusionConfig
+  # pretrained_path: "/home/prior/Desktop/YAM/lerobot/outputs/train/2025-11-09/19-27-13_diffusion/checkpoints/020000/pretrained_model"
+  repo_id: "/home/prior/Desktop/YAM/lerobot/lerobot/common/datasets/yam_dp_dataset_testing"
+  checkpoint_path: "/home/prior/Desktop/YAM/lerobot/outputs/train/2025-11-10/19-58-59_diffusion/checkpoints/100000/pretrained_model"
+
+
+# Data collection configuration
+collection:
+  max_episode_length: 10000
+  act_noise_std: 0.001
+  no_ops_threshold: 0.004
+  no_ops_last_detected_time: 3
+  lock_rotation_detected_time: 1
+
+# Data storage configuration
+storage:
+  episodes: 30
+  base_dir: "/home/prior/Desktop/YAM/yam_realtime/yam_realtime/scripts/delta_trajectory"
+  task_directory: "testing"
+  language_instruction: "testing"
+  teleop_device: "oculus" # ["oculus", "keyboard", "gello", "none"]
+  save_format: "json" # ["json", "npy"]
+  old_format: false

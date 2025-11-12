@@ -46,6 +46,7 @@ class DataSaver:
         obs['left_rgb'] = obs['left_camera']['images']['rgb']
         obs['right_rgb'] = obs['right_camera']['images']['rgb']
         obs['front_rgb'] = obs['front_camera']['images']['rgb']
+        obs['joint'] = {'left': np.concatenate([obs['left']['joint_pos'], obs['left']['gripper_pos']]), 'right': np.concatenate([obs['right']['joint_pos'], obs['right']['gripper_pos']])}
         self.buffer.append(obs.copy())
 
     def save_episode_json(self, pickle_only=False):
@@ -62,6 +63,7 @@ class DataSaver:
         task_name = self.instruction
         actions = buffer_dict['action']
         delta = buffer_dict['delta']
+        joint = buffer_dict['joint']
 
         if not pickle_only:
             # save rgb from camera
@@ -96,11 +98,13 @@ class DataSaver:
             json_data = []
             for i in range(len(actions)):
                 json_data_obs = {
-                    'instruction': task_name,
+                    'language_instruction': task_name,
                     'left_raw_action': str(actions[i]['left'].tolist()),
                     'left_delta_action': str(delta[i]['left'].tolist()),
                     'right_raw_action': str(actions[i]['right'].tolist()),
-                    'right_delta_action' : str(delta[i]['right'].tolist())
+                    'right_delta_action' : str(delta[i]['right'].tolist()),
+                    'left_joint': str(joint[i]['left'].tolist()),
+                    'right_joint': str(joint[i]['right'].tolist())
                 }
 
                 # add image paths to json

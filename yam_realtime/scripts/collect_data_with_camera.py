@@ -169,6 +169,18 @@ def _run_control_loop(env: RobotEnv, agent: Agent, config: LaunchConfig, configs
             elif info["failure"]:
                 break
 
+            # within agent, we use 7 point representation for action (x, y, z, w, x, y, z) for both left and right arm
+            # but for robot to actually move, we use 6 value joints position instead. So the act function in agent converts 
+            # the 7 points action. Also, there are some nasty conversion for quat from (w, x, y, z) to (x, y, z, w),
+            # the robot and viser uses (w, x, y, z) for quat. but python scipy uses (x, y, z, w) for quat.
+
+            # currently in the json for traning, the delta acton is actually a 7 point action without gripper. (from calc_delta_action)
+            # Also make sure that gripper is either 0 or 1. 
+
+
+            # note that we didn't really use obs (this is the outside world joints state containing pos, gripper, eff, vel)
+            # we use viser agent to compute the action in 3D viser space, which is then solved by ik to get the joints position.
+            # The action that the env.step() uses is the viser joints (the action returned by agent.act()).
             if info["movement_enabled"]['left'] or info["movement_enabled"]['right']:
                 act = agent.act(obs)
                 action = {'left': {'pos':act['left']['pos']}, 'right': {'pos':act['right']['pos']}}
