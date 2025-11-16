@@ -3,8 +3,8 @@ import os
 import sys
 from tkinter import Y
 
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
 import numpy as np
 from scipy.spatial.transform import Slerp, Rotation as R
 

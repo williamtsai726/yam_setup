@@ -2,8 +2,8 @@
 # It is used to teleoperate the robot using the Oculus Quest 2 controller.
 # VR Controller is connected to Viser, which the is used to control the robot. 
 import sys
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
 
 import threading
 import time
@@ -100,7 +100,7 @@ class OculusViserAgent(Agent):
         self.vr_state = {"left": None, "right": None}
         self.vr_prev_state = {"left": None, "right": None}
 
-    def _update_internal_state(self, num_wait_sec = 5, hz=20):
+    def _update_internal_state(self, num_wait_sec = 5, hz=10):
         last_read_time = time.time()
         while True:
             time.sleep(1/hz)
@@ -327,8 +327,8 @@ class OculusViserAgent(Agent):
 
 
 # import sys
-# sys.path.append('/home/prior/Desktop/YAM')
-# sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
+# sys.path.append('/home/sean/Desktop/YAM')
+# sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
 
 # import threading
 # import time

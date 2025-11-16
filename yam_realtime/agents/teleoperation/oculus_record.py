@@ -2,8 +2,8 @@
 # It is used to teleoperate the robot using the Oculus Quest 2 controller.
 # VR Controller is connected to Viser, which the is used to control the robot. 
 import sys
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
 
 import threading
 import time
@@ -100,7 +100,7 @@ class OculusRecordAgent(Agent):
         self.vr_state = {"left": None, "right": None}
         self.vr_prev_state = {"left": None, "right": None}
 
-    def _update_internal_state(self, num_wait_sec = 5, hz=20):
+    def _update_internal_state(self, num_wait_sec = 5, hz=30):
         last_read_time = time.time()
         while True:
             time.sleep(1/hz)
@@ -195,9 +195,9 @@ class OculusRecordAgent(Agent):
         viser_desired_pos_right = viser_pos_right
         viser_desired_quat_right = viser_quat_right
         delta_pos_left = np.zeros(3)
-        delta_quat_left = np.zeros(4)
+        delta_quat_left = np.array([0.0, 0.0, 0.0, 1.0])
         delta_pos_right = np.zeros(3)
-        delta_quat_right = np.zeros(4)
+        delta_quat_right = np.array([0.0, 0.0, 0.0, 1.0])
         
         if self.vr_state["left"] is not None and self.vr_prev_state["left"] is not None:
             delta_pos_left = self.vr_state["left"]["pose"] - self.vr_prev_state["left"]["pose"]
@@ -284,6 +284,7 @@ class OculusRecordAgent(Agent):
             self.ik.transform_handles["right"].control.position = np.array([0.12, 0.00535176, 0.09107439])
             self.ik.transform_handles["right"].control.wxyz = np.array([0.5, 0.5, 0.5, 0.5])
             return {}
+
         pose_left = np.asarray(self.ik.get_target_poses()["left"].translation())
         quat_left = np.asarray(self.ik.get_target_poses()["left"].rotation().wxyz)
         xyzw_left = np.concatenate([quat_left[1:], [quat_left[0]]])

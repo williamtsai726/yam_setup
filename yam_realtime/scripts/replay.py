@@ -2,8 +2,8 @@
 import os
 import sys
 
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
 
 from yam_realtime.utils.data_replay import DataReplayer
 from yam_realtime.agents.agent import Agent

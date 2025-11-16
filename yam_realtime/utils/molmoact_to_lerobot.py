@@ -1,5 +1,8 @@
 # To train lerobot model, use
-    # python lerobot/scripts/train.py --dataset.repo_id=/home/prior/Desktop/YAM/lerobot/lerobot/common/datasets/yam_dp_dataset --policy.type=diffusion
+    # python lerobot/scripts/train.py --dataset.repo_id=/home/sean/Desktop/YAM/lerobot/lerobot/common/datasets/yam_dp_dataset --policy.type=diffusion
+# or to resume from a checkpoint for training
+    # python lerobot/scripts/train.py --dataset.repo_id=/home/sean/Desktop/YAM/lerobot/lerobot/common/datasets/yam_dp_dataset --policy.type=diffusion 
+    # --output_dir=/home/sean/Desktop/YAM/lerobot/outputs/train/2025-11-12/01-53-36_diffusion/checkpoints/010000/pretrained_model/config.json --resume=true
 # note that repo_id is requred and can be either the absolute path of the local dir or huggingface repo
 # We can collect data using the script collect_data_with_policy.py and then convert to lerobot format using this script molmoact_to_lerobot.py
 # Then, this converted dataset can be used to train lerobot model.
@@ -13,8 +16,8 @@ Usage:
 python convert_molmoact_test_to_lerobot.py --data_dir /path/to/molmoact_test --output_dir /path/to/molmoact_test_lerobot
 """
 import sys
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/lerobot')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/lerobot')
 import argparse
 import json
 import numpy as np
@@ -144,11 +147,11 @@ def create_lerobot_dataset(episodes: List[Dict[str, Any]], output_dir: str, fps:
             "shape": (14,),  # lowdim_qpos dimension
             "names": ["left_joint1", "left_joint2", "left_joint3", "left_joint4", "left_joint5", "left_joint6", "left_gripper", "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5", "right_joint6", "right_gripper"] # left joint, right joint
         },
-        # Actions (required)
+        # Actions (required) (delta)
         "action": {
             "dtype": "float32",
-            "shape": (14,),  # action dimension
-            "names": ["left_dx", "left_dy", "left_dz", "left_dqx", "left_dqy", "left_dqz", "left_gripper", "right_dx", "right_dy", "right_dz", "right_dqx", "right_dqy", "right_dqz", "right_gripper"]
+            "shape": (16,),  # action dimension
+            "names": ["left_dx", "left_dy", "left_dz", "left_w", "left_wx", "left_wy", "left_wz", "left_gripper", "right_dx", "right_dy", "right_dz", "right_w", "right_wx", "right_wy", "right_wz", "right_gripper"]
         },
         # # End-effector position (optional)
         # "observation.ee_pos": {
@@ -157,17 +160,17 @@ def create_lerobot_dataset(episodes: List[Dict[str, Any]], output_dir: str, fps:
         #     "names": ["x", "y", "z", "qx", "qy", "qz", "qw"]
         # },
         # Image observations (optional)
-        "observation.images.camera_0": { 
+        "observation.images.camera_left": { 
             "dtype": "image",
             "shape": (480, 640, 3),  # Adjust according to actual image size
             "names": ["height", "width", "channels"]
         },
-        "observation.images.camera_1": {
+        "observation.images.camera_right": {
             "dtype": "image",
             "shape": (480, 640, 3),  # Adjust according to actual image size
             "names": ["height", "width", "channels"]
         },
-        "observation.images.camera_2": {
+        "observation.images.camera_front": {
             "dtype": "image",
             "shape": (480, 640, 3),  # Adjust according to actual image size
             "names": ["height", "width", "channels"]
@@ -234,7 +237,7 @@ def create_lerobot_dataset(episodes: List[Dict[str, Any]], output_dir: str, fps:
             # Add images (if available)
             for cam_idx, (camera_name, images) in enumerate(camera_images.items()):
                 if frame_idx < len(images):
-                    frame_data[f"observation.images.camera_{cam_idx}"] = images[frame_idx]
+                    frame_data[f"observation.images.camera_{camera_name}"] = images[frame_idx]
             dataset.add_frame(frame_data)
         # Save episode
         dataset.save_episode()

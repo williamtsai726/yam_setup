@@ -1,5 +1,6 @@
 # Eval diffusion policy for a single task.
 from copy import deepcopy
+from math import log
 import os
 import sys
 from tkinter import Y
@@ -7,11 +8,10 @@ from tkinter import Y
 from PIL import Image
 import numpy as np
 import torch
-from yam_realtime.utils.logging_utils import log_collect_demos
 
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
-sys.path.append('/home/prior/Desktop/YAM/lerobot')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
+sys.path.append('/home/sean/Desktop/YAM/lerobot')
 """
 Main launch script for YAM realtime robot control environment.
 """
@@ -25,6 +25,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import tyro
 
+from yam_realtime.utils.logging_utils import log_collect_demos
 from yam_realtime.agents.agent import Agent
 from yam_realtime.envs.configs.instantiate import instantiate
 from yam_realtime.envs.configs.loader import DictLoader
@@ -37,6 +38,7 @@ from yam_realtime.utils.launch_utils import (
     initialize_agent,
     initialize_robots,
     initialize_sensors,
+    logger,
     setup_can_interfaces,
     setup_logging,
 )
@@ -109,6 +111,9 @@ def main(args: Args) -> None:
             control_rate_hz=rate,
         )
 
+        reset_robot(agent, env, 'left')
+        reset_robot(agent, env, 'right')
+
         logger.info("Starting control loop...")
         ds_meta = LeRobotDatasetMetadata(
             repo_id=policy_cfg["repo_id"]
@@ -118,13 +123,14 @@ def main(args: Args) -> None:
         policy.eval()
 
         _run_control_loop(env, main_config, policy, agent)
-
     except Exception as e:
         logger.error(f"Error during execution: {e}")
         raise e
     finally:
         # Cleanup
         logger.info("Shutting down...")
+        reset_robot(agent, env, 'left')
+        reset_robot(agent, env, 'right')
         if "env" in locals():
             env.close()
         if "agent" in locals():
@@ -138,7 +144,7 @@ def preprocess_observation(observations: dict[str, np.ndarray]) -> dict[str, tor
     TARGET_WIDTH = 342
 
     # Map cameras
-    camera_mapping = {"left_camera": 0, "right_camera": 1, "front_camera": 2}
+    camera_mapping = {"left_camera": 'left', "right_camera": 'right', "front_camera": 'front'}
     for cam_name, cam_idx in camera_mapping.items():
         if cam_name in observations:
             img_np = observations[cam_name]["images"]["rgb"]  # H,W,C (480, 640, 3)
@@ -169,6 +175,46 @@ def preprocess_observation(observations: dict[str, np.ndarray]) -> dict[str, tor
 
     return return_observations
 
+
+def reset_robot(agent: Agent, env: RobotEnv, side: str, target_joint_positions: Optional[np.ndarray] = None):
+    agent.act({})
+    current_pos = env.robot(side).get_joint_pos()
+    target_joint_positions = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+
+    steps = 50
+    for i in range(steps + 1):
+        alpha = i / steps  # Interpolation factor
+        target_pos = (1 - alpha) * current_pos + alpha * target_joint_positions  # Linear interpolation
+        env.robot(side).command_joint_pos(target_pos)
+        time.sleep(2 / steps)
+
+# def smooth_move_while_inference(agent: Agent, env: RobotEnv, side: str, target_joint_positions: Optional[np.ndarray] = None):
+#     current_pos = env.robot(side).get_joint_pos()
+
+#     steps = 10
+#     for i in range(steps + 1):
+#         alpha = i / steps  # Interpolation factor
+#         target_pos = (1 - alpha) * current_pos + alpha * target_joint_positions  # Linear interpolation
+#         env.robot(side).command_joint_pos(target_pos)
+#         time.sleep(0.5 / steps)
+
+def smooth_move_while_inference_envstep(agent: Agent, env: RobotEnv, action):
+    current_left_joint = env.robot("left").get_joint_pos()
+    current_right_joint = env.robot("right").get_joint_pos()
+
+    target_left_joint = action["left"]["pos"]
+    target_right_joint = action["right"]["pos"]
+
+    steps = 10
+    obs = None
+    for i in range(steps + 1):
+        alpha = i / steps  # Interpolation factor
+        target_pos_left = (1 - alpha) * current_left_joint + alpha * target_left_joint  # Linear interpolation
+        target_pos_right = (1 - alpha) * current_right_joint + alpha * target_right_joint
+        obs = env.step({"left" : {"pos" : target_pos_left}, "right" : {"pos": target_pos_right}})
+        time.sleep(0.5 / steps)
+
+    return obs
 
 
 def _run_control_loop(env: RobotEnv, config: LaunchConfig, policy: DiffusionPolicy, agent: Agent) -> None:
@@ -205,11 +251,18 @@ def _run_control_loop(env: RobotEnv, config: LaunchConfig, policy: DiffusionPoli
         log_collect_demos(f"Generated {len(actions)} action(s)", "data_info")
 
         actions = actions.squeeze(0).detach().cpu().numpy()
-        delta_act = {'left': actions[:7], 'right': actions[7:]}
+        # logger.info("left gripper: {}", actions[7])
+        # logger.info("right gripper: {}", actions[15])
+        delta_act = {'left': actions[:8], 'right': actions[8:]}
         obs['delta_action'] = delta_act
         action = agent.act(obs)
-        obs = env.step(action)
+        
+        # smooth_move_while_inference(agent, env, "left", action["left"]["pos"])
+        # smooth_move_while_inference(agent, env, "right", action["right"]["pos"])
 
+        obs = smooth_move_while_inference_envstep(agent, env, action)
+
+        # obs = env.step(action)
 
 if __name__ == "__main__":
     main(tyro.cli(Args))

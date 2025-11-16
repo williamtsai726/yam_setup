@@ -13,7 +13,7 @@ logger.setLevel(logging.INFO)
 
 
 class DataSaver:
-    def __init__(self, save_dir="/home/prior/Desktop/YAM/yam_realtime/yam_realtime/scripts/delta_trajectory/", task_directory="Testing_dir", language_instruction="Test"):
+    def __init__(self, save_dir="/home/sean/Desktop/YAM/yam_realtime/yam_realtime/scripts/delta_trajectory/", task_directory="Testing_dir", language_instruction="Test"):
         self.save_dir = os.path.join(
             save_dir,
             task_directory
@@ -42,7 +42,7 @@ class DataSaver:
     def add_observation(self, obs, action):
         obs['action'] = {'left': action['left']['pos'], 'right': action['right']['pos']}
         obs['instruction'] = self.instruction
-        obs['delta'] = {'left': action['left']['delta'], 'right': action['right']['delta']}
+        obs['delta'] = {'left': np.concatenate([action['left']['delta'], [action['left']['pos'][-1]]]), 'right': np.concatenate([action['right']['delta'], [action['right']['pos'][-1]]])}
         obs['left_rgb'] = obs['left_camera']['images']['rgb']
         obs['right_rgb'] = obs['right_camera']['images']['rgb']
         obs['front_rgb'] = obs['front_camera']['images']['rgb']
@@ -95,6 +95,7 @@ class DataSaver:
                     # logger.info(f"Saved {len(paths)} images for camera {key}")
 
             # add action and delta to json
+            # note that raw action is the joint returned by the viser ik, while the other joint is from robot obs
             json_data = []
             for i in range(len(actions)):
                 json_data_obs = {

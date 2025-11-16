@@ -1,18 +1,3 @@
-# YAM DAta Collection (json)
-The current data collection with camera collected:
-    {
-        "language_instruction": "testing",
-        "left_raw_action": "[0.06937824934720993, -0.00010153520270250738, -0.0036047063767910004, -0.14338549971580505, 0.06944022327661514, 0.010194350965321064, 1.0]",
-        "left_delta_action": "[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]",
-        "right_raw_action": "[0.038613419979810715, 0.4039478898048401, -0.001194400480017066, 0.44247910380363464, 0.013759195804595947, -0.042561329901218414, 1.0]",
-        "right_delta_action": "[0.0021019999999999373, -0.00035458000000000017, 0.004477700000000001, 0.9999925567007315, 0.0021699664520927406, 0.0009417001963707514, 0.0030481124440036866]",
-        "left_joint": "[0.0661860074769205, 0.004386968795300206, 0.056267643244067855, -0.12188143739986579, 0.05321583886472858, 0.00705729762722207, 1.000499097174538]",
-        "right_joint": "[0.02117189288166621, 0.2161058976119623, 0.05550469214923304, 0.07991912718394723, -0.0009536888685399703, -0.010490577553978753, 0.9990685638717227]",
-        "image_front_rgb": "/home/prior/Desktop/YAM/yam_realtime/yam_realtime/scripts/delta_trajectory/testing/000001/front_rgb/000012.png",
-        "image_left_rgb": "/home/prior/Desktop/YAM/yam_realtime/yam_realtime/scripts/delta_trajectory/testing/000001/left_rgb/000012.png",
-        "image_right_rgb": "/home/prior/Desktop/YAM/yam_realtime/yam_realtime/scripts/delta_trajectory/testing/000001/right_rgb/000012.png"
-    },
-the raw actions are also joint that are computed by ik while the joint are obs valued, but since we use raw actions when executing env.step(), use raw actions to train
 # YAM Realtime Control Interfaces
 
 YAM Realtime is a modular software stack for realtime control, teleoperation, and policy integration on bi-manual I2RT YAM arms.

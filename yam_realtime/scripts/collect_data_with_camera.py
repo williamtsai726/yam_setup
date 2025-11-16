@@ -3,8 +3,8 @@ import os
 import sys
 from tkinter import Y
 
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
 import numpy as np
 from scipy.spatial.transform import Slerp, Rotation as R
 
@@ -28,6 +28,7 @@ from yam_realtime.robots.robot import Robot
 import logging
 import time
 import tyro
+from scipy.spatial.transform import Rotation as R
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -118,7 +119,30 @@ def reset_robot(agent: Agent, env: RobotEnv, side: str):
         env.robot(side).command_joint_pos(target_pos)
         time.sleep(2 / steps)
 
+def sum_delta_action(prev_delta, curr_delta):
+    prev_delta_pos_left = prev_delta["left"]["delta"][:3]
+    prev_delta_quat_left = np.concatenate([prev_delta["left"]["delta"][4:], [prev_delta["left"]["delta"][3]]])
 
+    curr_delta_pos_left = curr_delta["left"]["delta"][:3]
+    curr_delta_quat_left = np.concatenate([curr_delta["left"]["delta"][4:], [curr_delta["left"]["delta"][3]]])
+
+    sum_delta_pos_left = curr_delta_pos_left + prev_delta_pos_left
+    sum_delta_quat_left = (R.from_quat(curr_delta_quat_left) * R.from_quat(prev_delta_quat_left)).as_quat()
+
+    prev_delta_pos_right = prev_delta["right"]["delta"][:3]
+    prev_delta_quat_right = np.concatenate([prev_delta["right"]["delta"][4:], [prev_delta["right"]["delta"][3]]])
+
+    curr_delta_pos_right = curr_delta["right"]["delta"][:3]
+    curr_delta_quat_right = np.concatenate([curr_delta["right"]["delta"][4:], [curr_delta["right"]["delta"][3]]])
+
+    sum_delta_pos_right = curr_delta_pos_right + prev_delta_pos_right
+    sum_delta_quat_right = (R.from_quat(curr_delta_quat_right) * R.from_quat(prev_delta_quat_right)).as_quat()
+
+    delta_sum = {
+        "left": {"delta" : np.concatenate([sum_delta_pos_left, [sum_delta_quat_left[3]], sum_delta_quat_left[:3]])},
+        "right": {"delta" : np.concatenate([sum_delta_pos_right, [sum_delta_quat_right[3]], sum_delta_quat_right[:3]])}
+    }
+    return delta_sum
 
 def _run_control_loop(env: RobotEnv, agent: Agent, config: LaunchConfig, configs_dict: Dict, data_saver: DataSaver) -> None:
     """
@@ -129,6 +153,7 @@ def _run_control_loop(env: RobotEnv, agent: Agent, config: LaunchConfig, configs
         agent: Agent instance
         config: Configuration object
     """
+    previous_action = agent.act({})
     saver_thread = EpisodeSaverThread(data_saver)
     saver_thread.start()
 
@@ -138,7 +163,12 @@ def _run_control_loop(env: RobotEnv, agent: Agent, config: LaunchConfig, configs
     # Init environment and warm up agent
     obs = env.reset()
     logger.info(f"Action spec: {env.action_spec()}")
-    
+    last_save_time = time.time()
+    hz = 10
+    delta_cumulative = {
+        "left": {"delta" : np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])},
+        "right": {"delta" : np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])}
+    }
 
     # Main control loop
     while num_traj <= configs_dict['storage']['episodes']:
@@ -184,7 +214,16 @@ def _run_control_loop(env: RobotEnv, agent: Agent, config: LaunchConfig, configs
             if info["movement_enabled"]['left'] or info["movement_enabled"]['right']:
                 act = agent.act(obs)
                 action = {'left': {'pos':act['left']['pos']}, 'right': {'pos':act['right']['pos']}}
-                data_saver.add_observation(obs, act)
+                delta_cumulative = sum_delta_action(delta_cumulative, act)
+                if time.time() - last_save_time > (1/10):
+                    act["left"]["delta"] = delta_cumulative["left"]["delta"]
+                    act["right"]["delta"] = delta_cumulative["right"]["delta"]
+                    data_saver.add_observation(obs, act)
+                    delta_cumulative = {
+                            "left": {"delta" : np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])},
+                            "right": {"delta" : np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])}
+                        }
+                    last_save_time = time.time()
                 next_obs = env.step(action)
                 obs = next_obs.copy()
         

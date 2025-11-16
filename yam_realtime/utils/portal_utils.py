@@ -232,10 +232,17 @@ def launch_remote_server(
         remote_server = RemoteServer(obj, port, host, custom_remote_methods=custom_remote_methods)
         remote_server.serve()
 
+    # wrapper that makes the remote server ignores ctrl+c, so then we can reset the robot position and close server.
+    def _launch_wrapper():
+        import signal
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        _launch()
+
     p = None
     if launch_remote:
-        p = portal.Process(_launch, start=True)
-    if process_pool is not None:
+        # p = portal.Process(_launch, start=True)
+        p = portal.Process(_launch_wrapper, start=True)
+    if process_pool is not None: 
         process_pool.append(p)
     return p
 

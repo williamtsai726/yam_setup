@@ -7,11 +7,10 @@ from tkinter import Y
 from PIL import Image
 import numpy as np
 import torch
-from yam_realtime.utils.data_replay import DataReplayer, log_collect_demos
 
-sys.path.append('/home/prior/Desktop/YAM')
-sys.path.append('/home/prior/Desktop/YAM/yam_realtime')
-sys.path.append('/home/prior/Desktop/YAM/lerobot')
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
+sys.path.append('/home/sean/Desktop/YAM/lerobot')
 """
 Main launch script for YAM realtime robot control environment.
 """
@@ -24,9 +23,11 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple, Union
+from scipy.spatial.transform import Rotation as R
 
 import tyro
 
+from yam_realtime.utils.data_replay import DataReplayer, log_collect_demos
 from yam_realtime.agents.agent import Agent
 from yam_realtime.envs.configs.instantiate import instantiate
 from yam_realtime.envs.configs.loader import DictLoader
@@ -113,6 +114,9 @@ def main(args: Args) -> None:
             control_rate_hz=rate,
         )
 
+        reset_robot(agent, env, 'left')
+        reset_robot(agent, env, 'right')
+
         logger.info("Starting control loop...")
         ds_meta = LeRobotDatasetMetadata(
             repo_id=policy_cfg["repo_id"]
@@ -129,17 +133,18 @@ def main(args: Args) -> None:
         data_replayer.load_episode(configs_dict['storage']['base_dir'] + '/' + task, episode_number)
 
 
-        print(policy.config.input_features)
-        print(policy.config.output_features)
+        # print(policy.config.input_features)
+        # print(policy.config.output_features)
 
         _run_control_loop(env, main_config, policy, data_replayer, agent)
-
     except Exception as e:
         logger.error(f"Error during execution: {e}")
         raise e
     finally:
         # Cleanup
         logger.info("Shutting down...")
+        reset_robot(agent, env, 'left')
+        reset_robot(agent, env, 'right')
         if "env" in locals():
             env.close()
         if "agent" in locals():
@@ -178,9 +183,9 @@ def preprocess_observation(observation: dict[str, Any]) -> dict[str, torch.Tenso
     input_dict = {
         "observation.state": torch.from_numpy(state_np).float().cuda().unsqueeze(0),  # [1, state_dim])
         # convert images from HWC numpy -> CHW torch
-        "observation.images.camera_0": torch.from_numpy(cam0_np).float().permute(2, 0, 1).cuda().unsqueeze(0),  # [1, C, H, W]
-        "observation.images.camera_1": torch.from_numpy(cam1_np).float().permute(2, 0, 1).cuda().unsqueeze(0),  # [1, C, H, W]
-        "observation.images.camera_2": torch.from_numpy(cam2_np).float().permute(2, 0, 1).cuda().unsqueeze(0),  # [1, C, H, W]
+        "observation.images.camera_left": torch.from_numpy(cam0_np).float().permute(2, 0, 1).cuda().unsqueeze(0),  # [1, C, H, W]
+        "observation.images.camera_right": torch.from_numpy(cam1_np).float().permute(2, 0, 1).cuda().unsqueeze(0),  # [1, C, H, W]
+        "observation.images.camera_front": torch.from_numpy(cam2_np).float().permute(2, 0, 1).cuda().unsqueeze(0),  # [1, C, H, W]
     }
     for k,v in input_dict.items():
         print(f"Input {k}: {v.shape}", "data_info")
@@ -188,7 +193,27 @@ def preprocess_observation(observation: dict[str, Any]) -> dict[str, torch.Tenso
     return input_dict 
 
 
-from scipy.spatial.transform import Rotation as R
+def reset_robot(agent: Agent, env: RobotEnv, side: str, target_joint_positions: Optional[np.ndarray] = None):
+    agent.act({})
+    current_pos = env.robot(side).get_joint_pos()
+    target_joint_positions = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+
+    steps = 50
+    for i in range(steps + 1):
+        alpha = i / steps  # Interpolation factor
+        target_pos = (1 - alpha) * current_pos + alpha * target_joint_positions  # Linear interpolation
+        env.robot(side).command_joint_pos(target_pos)
+        time.sleep(2 / steps)
+
+def smooth_move_while_inference(agent: Agent, env: RobotEnv, side: str, target_joint_positions: Optional[np.ndarray] = None):
+    current_pos = env.robot(side).get_joint_pos()
+
+    steps = 10
+    for i in range(steps + 1):
+        alpha = i / steps  # Interpolation factor
+        target_pos = (1 - alpha) * current_pos + alpha * target_joint_positions  # Linear interpolation
+        env.robot(side).command_joint_pos(target_pos)
+        time.sleep(0.5 / steps)
 
 def _run_control_loop(env: RobotEnv, config: LaunchConfig, policy: DiffusionPolicy, data_replayer: DataReplayer, agent: Agent) -> None:
     """
@@ -209,9 +234,9 @@ def _run_control_loop(env: RobotEnv, config: LaunchConfig, policy: DiffusionPoli
     # Main control loop
     demo_length = data_replayer.get_demo_length()
     obs_index = 0
-    obs = data_replayer.get_observation(obs_index)
-    input_dict = preprocess_observation(obs)
     while obs_index < demo_length:
+        obs = data_replayer.get_observation(obs_index)
+        input_dict = preprocess_observation(obs)
         log_collect_demos("Running policy inference...", "info")
         start_time = time.time()
         actions = policy.select_action(input_dict)
@@ -221,14 +246,13 @@ def _run_control_loop(env: RobotEnv, config: LaunchConfig, policy: DiffusionPoli
 
         print("action.shape:", actions.shape)
         actions = actions.squeeze(0).detach().cpu().numpy()
-        delta_act = {'left': actions[:7], 'right': actions[7:]}
+        delta_act = {'left': actions[:8], 'right': actions[8:]}
         obs['delta_action'] = delta_act
         action = agent.act(obs)
-        env.step(action)
-
+        # env.step(action)
+        smooth_move_while_inference(agent, env, "left", action["left"]["pos"])
+        smooth_move_while_inference(agent, env, "right", action["right"]["pos"])
         obs_index += 1
-        obs = data_replayer.get_observation(obs_index)
-        input_dict = preprocess_observation(obs)
 
 if __name__ == "__main__":
     main(tyro.cli(Args))

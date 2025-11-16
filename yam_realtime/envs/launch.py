@@ -7,6 +7,9 @@ import os
 import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple, Union
+import sys
+sys.path.append('/home/sean/Desktop/YAM')
+sys.path.append('/home/sean/Desktop/YAM/yam_realtime')
 
 import tyro
 

@@ -111,10 +111,10 @@ class AsyncDiffusionAgent(PolicyAgent):
         # Read robot current state from the obs (Dict[str, Any])
         viser_pos_left = viser_state_dict["pos"]["left"][:3]
         viser_quat_left = viser_state_dict["pos"]["left"][3:]
-        viser_gripper_left = viser_state_dict["gripper"]["left"]
+
         viser_pos_right = viser_state_dict["pos"]["right"][:3]
         viser_quat_right = viser_state_dict["pos"]["right"][3:]
-        viser_gripper_right = viser_state_dict["gripper"]["right"]
+
         delta_pos_left = viser_state_dict["delta_action"]["left"][:3]
         delta_quat_left = viser_state_dict["delta_action"]["left"][3:]
         delta_pos_right = viser_state_dict["delta_action"]["right"][:3]
@@ -149,26 +149,27 @@ class AsyncDiffusionAgent(PolicyAgent):
         xyzw_right = np.concatenate([quat_right[1:], [quat_right[0]]])
         
         viser_state = {
-            "pos": {"left": np.concatenate([pose_left, xyzw_left]), "right": np.concatenate([pose_right, xyzw_right])},
-            "gripper" : {"left": 1, "right": 1}, # TODO: change this to actual gripper pos
+            "pos": {"left": np.concatenate([pose_left, xyzw_left]), "right": np.concatenate([pose_right, xyzw_right])}
         }
 
         if "delta_action" in obs:
-            viser_state['delta_action'] = {'left': np.concatenate([obs['delta_action']['left'][:3], obs['delta_action']['left'][4:], [obs['delta_action']['left'][3]]]), 
-                                            'right': np.concatenate([obs['delta_action']['right'][:3], obs['delta_action']['right'][4:], [obs['delta_action']['right'][3]]])}
+            viser_state['delta_action'] = {'left': np.concatenate([obs['delta_action']['left'][:3], obs['delta_action']['left'][4:7], [obs['delta_action']['left'][3]]]), 
+                                            'right': np.concatenate([obs['delta_action']['right'][:3], obs['delta_action']['right'][4:7], [obs['delta_action']['right'][3]]])}
         viser_action = self._calc_delta_action(viser_state)
         if viser_action is not None:
             self.ik.transform_handles["left"].control.position = viser_action[0][:3]
             self.ik.transform_handles["left"].control.wxyz = viser_action[0][3:]
-            self.left_gripper_slider_handle.value = 1
+            self.left_gripper_slider_handle.value = obs['delta_action']['left'][-1]
             self.ik.transform_handles["right"].control.position = viser_action[1][:3]
             self.ik.transform_handles["right"].control.wxyz = viser_action[1][3:]
-            self.right_gripper_slider_handle.value = 1
+            self.right_gripper_slider_handle.value = obs['delta_action']['right'][-1]
         else:
             self.ik.transform_handles["left"].control.position = np.array([0.12, 0.00535176, 0.09107439])
             self.ik.transform_handles["left"].control.wxyz = np.array([0.5, 0.5, 0.5, 0.5])
             self.ik.transform_handles["right"].control.position = np.array([0.12, 0.00535176, 0.09107439])
             self.ik.transform_handles["right"].control.wxyz = np.array([0.5, 0.5, 0.5, 0.5])
+            self.left_gripper_slider_handle.value = 1.0
+            self.right_gripper_slider_handle.value = 1.0
 
         action = {
             "left": {
