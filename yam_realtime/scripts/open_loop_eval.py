@@ -205,15 +205,23 @@ def reset_robot(agent: Agent, env: RobotEnv, side: str, target_joint_positions: 
         env.robot(side).command_joint_pos(target_pos)
         time.sleep(2 / steps)
 
-def smooth_move_while_inference(agent: Agent, env: RobotEnv, side: str, target_joint_positions: Optional[np.ndarray] = None):
-    current_pos = env.robot(side).get_joint_pos()
+def smooth_move_while_inference_envstep(agent: Agent, env: RobotEnv, action):
+    current_left_joint = env.robot("left").get_joint_pos()
+    current_right_joint = env.robot("right").get_joint_pos()
+
+    target_left_joint = action["left"]["pos"]
+    target_right_joint = action["right"]["pos"]
 
     steps = 10
+    obs = None
     for i in range(steps + 1):
         alpha = i / steps  # Interpolation factor
-        target_pos = (1 - alpha) * current_pos + alpha * target_joint_positions  # Linear interpolation
-        env.robot(side).command_joint_pos(target_pos)
+        target_pos_left = (1 - alpha) * current_left_joint + alpha * target_left_joint  # Linear interpolation
+        target_pos_right = (1 - alpha) * current_right_joint + alpha * target_right_joint
+        obs = env.step({"left" : {"pos" : target_pos_left}, "right" : {"pos": target_pos_right}})
         time.sleep(0.5 / steps)
+
+    return obs
 
 def _run_control_loop(env: RobotEnv, config: LaunchConfig, policy: DiffusionPolicy, data_replayer: DataReplayer, agent: Agent) -> None:
     """
@@ -250,8 +258,7 @@ def _run_control_loop(env: RobotEnv, config: LaunchConfig, policy: DiffusionPoli
         obs['delta_action'] = delta_act
         action = agent.act(obs)
         # env.step(action)
-        smooth_move_while_inference(agent, env, "left", action["left"]["pos"])
-        smooth_move_while_inference(agent, env, "right", action["right"]["pos"])
+        obs = smooth_move_while_inference_envstep(agent, env, action)
         obs_index += 1
 
 if __name__ == "__main__":
